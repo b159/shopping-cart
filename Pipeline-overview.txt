@@ -1,0 +1,119 @@
+# shopping-cart
+CI-CD pipeline using Jenkins for a sample shopping cart application
+This project sets up a complete CI-CD pipeline using Jenkins for a sample shopping cart application hosted on GitHub. It integrates key DevOps practices such as:
+
+    Code compilation & static analysis
+
+    Security scanning (OWASP Dependency-Check)
+
+    Docker image creation & publishing
+
+    Deployment via Docker container
+
+It is split into two parts:
+
+    CI Pipeline: Handles source code checkout, build, test, scan, Docker packaging, and triggers deployment.
+
+    CD Pipeline: Pulls and deploys the Docker image to run the application container.
+
+
+pipeline {
+    agent any
+
+    tools {
+        jdk 'jdk17'              // Use JDK 17
+        maven 'maven3'           // Use Maven 3
+    }
+
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'  // Environment variable for SonarScanner path
+    }
+
+    stages {
+
+
+
+🔹 1. Git checkout : Clones the main branch of your GitHub repository.
+
+stage('Git checkout') {
+    steps {
+        git branch: 'main', url: 'https://github.com/jaiswaladi246/Ekart.git'
+    }
+}
+
+
+🔹 2. Code Compilation : ✅ Compiles the Java project using Maven, verifying that there are no compilation errors.
+
+stage('Code Compilation') {
+    steps {
+        sh 'mvn clean compile'
+    }
+}
+
+🔹 3. Sonar Analysis : ✅ Performs static code analysis using SonarQube for code quality, maintainability, and bugs.
+
+stage('Sonar Analysis') {
+    steps {
+        sh '''$SCANNER_HOME/bin/sonar-scanner ...'''
+    }
+}
+
+🔹 4. OWASP Scan : ✅ Scans the project for known security vulnerabilities using the OWASP Dependency-Check plugin.
+
+stage('OWSAP Scan') {
+    steps {
+        dependencyCheck additionalArguments: '--format XML --out dependency-check-report --scan ./', odcInstallation: 'DP'
+        dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
+    }
+}
+
+🔹 5. Build Code : ✅ Builds the project (without running tests) and creates the final .jar or .war file.
+
+stage('Build Code') {
+    steps {
+        sh 'mvn clean install -DskipTests=true'
+    }
+}
+
+
+🔹 6. Docker Image and Push to Hub : ✅ Builds a Docker image for the application and pushes it to Docker Hub.
+
+stage('Docker Image and push to Hub') {
+    steps {
+        script {
+            withDockerRegistry(credentialsId: ..., toolName: 'docker') {
+                sh 'docker build -t shopping:latest -f docker/Dockerfile .'
+                sh 'docker tag shopping:latest binitm/shopping:latest'
+                sh 'docker push binitm/shopping:latest'
+            }
+        }
+    }
+}
+
+🔹 7. Trigger CD Pipeline : ✅ Triggers the CD pipeline job in Jenkins for deployment.
+
+stage('Trigger CD pipeline') {
+    steps {
+        build job:"cd" , wait: true
+    }
+}
+
+
+✅ CD Pipeline Breakdown : ✅ Pulls the latest image from Docker Hub and deploys it in a container named shop on port 8070.
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Deploying') {
+            steps {
+                script {
+                    withDockerRegistry(...) {
+                        sh 'docker run -d --name shop -p 8070:8070 binitm/shopping:latest'
+                    }
+                }
+            }
+        }
+    }
+}
+
